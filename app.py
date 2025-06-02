@@ -6,7 +6,7 @@ import os
 import requests
 from geopy.geocoders import Nominatim
 from flask_cors import CORS
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 
 app = Flask(__name__)
 CORS(app)
@@ -18,7 +18,7 @@ PREPROCESSOR_PATH = os.path.join(MODEL_DIR, 'preprocessor.pkl')
 LABEL_ENCODER_PATH = os.path.join(MODEL_DIR, 'label_encoder.pkl')
 
 # === LOAD MODEL ===
-interpreter = tf.lite.Interpreter(model_path=TFLITE_PATH)
+interpreter = tflite.Interpreter(model_path=TFLITE_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
