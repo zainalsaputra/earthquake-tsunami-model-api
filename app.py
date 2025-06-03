@@ -1,15 +1,24 @@
-from flask import Flask, request, jsonify
-import pandas as pd
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import joblib
 import numpy as np
 import os
 import requests
-from geopy.geocoders import Nominatim
-from flask_cors import CORS
 import tensorflow as tf
+import pandas as pd
+from geopy.geocoders import Nominatim
+from typing import Optional
 
-app = Flask(__name__)
-CORS(app)
+# === INIT APP ===
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # === PATHS ===
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'models')
@@ -29,6 +38,11 @@ label_encoder = joblib.load(LABEL_ENCODER_PATH)
 
 # === GEO CODER ===
 geocoder = Nominatim(user_agent="mitigasi_kita")
+
+# === MODELS ===
+class Coordinate(BaseModel):
+    latitude: float
+    longitude: float
 
 # === UTILITY FUNCTIONS ===
 def get_weather_data(latitude, longitude):
@@ -75,7 +89,6 @@ def prepare_input_data(latitude, longitude):
     weather = get_weather_data(latitude, longitude)
     location, city = get_location_data(latitude, longitude)
 
-    # Data gempa statis simulasi
     quake = {
         'magnitude': 4.427,
         'mag_type': 'M',
@@ -100,57 +113,64 @@ def prepare_input_data(latitude, longitude):
         **other
     }
 
-    return pd.DataFrame([full_input], columns=preprocessor.feature_names_in_)
+    return full_input  # Dictionary
 
-# === ROUTES ===
-@app.route('/predict', methods=['POST'])
-def predict():
+# === ROUTE ===
+@app.post("/predict")
+async def predict(coord: Coordinate):
     try:
-        data = request.get_json()
-        latitude = float(data.get('latitude'))
-        longitude = float(data.get('longitude'))
+        latitude = coord.latitude
+        longitude = coord.longitude
 
-        input_df = prepare_input_data(latitude, longitude)
-        X = preprocessor.transform(input_df).astype(np.float32)
+        input_dict = prepare_input_data(latitude, longitude)
 
+        # 🔄 Gunakan pandas untuk buat DataFrame
+        df_input = pd.DataFrame([input_dict])
+
+        # Urutkan kolom agar sesuai dengan preprocessor
+        df_input = df_input[preprocessor.feature_names_in_]
+
+        # Transformasi
+        X = preprocessor.transform(df_input).astype(np.float32)
+
+        # Prediksi dengan TFLite
         interpreter.set_tensor(input_details[0]['index'], X)
         interpreter.invoke()
         prediction = interpreter.get_tensor(output_details[0]['index'])
 
+        # Ambil hasil prediksi
         class_idx = np.argmax(prediction, axis=1)[0]
         predicted_class = label_encoder.inverse_transform([class_idx])[0]
         confidence_score = float(prediction[0][class_idx])
 
-        magnitude = input_df['magnitude'].iloc[0]
-        depth = input_df['depth'].iloc[0]
+        magnitude = input_dict['magnitude']
+        depth = input_dict['depth']
         potensi_tsunami, _ = determine_tsunami_potential(magnitude, depth)
 
-        return jsonify({
+        return {
             'status': 'success',
             'data': {
-                'location': input_df['location'].iloc[0],
-                'city': input_df['city'].iloc[0],
-                'agency': 'BMKG',
-                'mag_type': 'M',
+                'location': input_dict['location'],
+                'city': input_dict['city'],
+                'agency': input_dict['agency'],
+                'mag_type': input_dict['mag_type'],
                 'magnitude': float(magnitude),
                 'depth': float(depth),
-                'azimuth_gap': float(input_df['azimuth_gap'].iloc[0]),
-                'phasecount': int(input_df['phasecount'].iloc[0]),
+                'azimuth_gap': float(input_dict['azimuth_gap']),
+                'phasecount': int(input_dict['phasecount']),
                 'potensi_tsunami': potensi_tsunami,
                 'latitude': latitude,
                 'longitude': longitude,
-                'temperature_2m_min': float(input_df['temperature_2m_min'].iloc[0]),
-                'temperature_2m_max': float(input_df['temperature_2m_max'].iloc[0]),
-                'windspeed_10m_max': float(input_df['windspeed_10m_max'].iloc[0]),
-                'precipitation_sum': float(input_df['precipitation_sum'].iloc[0]),
+                'temperature_2m_min': float(input_dict['temperature_2m_min']),
+                'temperature_2m_max': float(input_dict['temperature_2m_max']),
+                'windspeed_10m_max': float(input_dict['windspeed_10m_max']),
+                'precipitation_sum': float(input_dict['precipitation_sum']),
                 'status': predicted_class,
                 'confidence_score': confidence_score
             }
-        })
+        }
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return {"status": "error", "message": str(e)}
 
-# === RUN SERVER ===
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+# uvicorn app:app --host 0.0.0.0 --port 3000 --reload
