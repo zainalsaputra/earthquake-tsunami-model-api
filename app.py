@@ -173,4 +173,4 @@ async def predict(coord: Coordinate):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# uvicorn app:app --host 0.0.0.0 --port 3000 --reload
+# 
