@@ -34,8 +34,8 @@ A lightweight and scalable **FastAPI-based** server that predicts the **earthqua
 ### 1. Clone this repository
 
 ```bash
-git clone https://github.com/zainalsaputra/mitigasi-kita-app-model.git
-cd mitigasi-kita-app-model
+git clone https://github.com/zainalsaputra/earthquake-tsunami-model-api.git
+cd earthquake-tsunami-model-api
 ```
 
 ### 2. Install Dependencies
