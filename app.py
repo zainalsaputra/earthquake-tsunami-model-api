@@ -5,7 +5,7 @@ import joblib
 import numpy as np
 import os
 import requests
-import tflite_runtime.interpreter as tflite
+import tensorflow as tf
 import pandas as pd
 from geopy.geocoders import Nominatim
 from typing import Optional
@@ -27,7 +27,7 @@ PREPROCESSOR_PATH = os.path.join(MODEL_DIR, 'preprocessor.pkl')
 LABEL_ENCODER_PATH = os.path.join(MODEL_DIR, 'label_encoder.pkl')
 
 # === LOAD MODEL ===
-interpreter = tflite.Interpreter(model_path=TFLITE_PATH)
+interpreter = tf.lite.Interpreter(model_path=TFLITE_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
@@ -141,7 +141,7 @@ async def predict(coord: Coordinate):
         # Ambil hasil prediksi
         class_idx = np.argmax(prediction, axis=1)[0]
         predicted_class = label_encoder.inverse_transform([class_idx])[0]
-        confidence_score = float(prediction[0][class_idx])
+        # confidence_score = float(prediction[0][class_idx])
 
         magnitude = input_dict['magnitude']
         depth = input_dict['depth']
@@ -166,11 +166,11 @@ async def predict(coord: Coordinate):
                 'windspeed_10m_max': float(input_dict['windspeed_10m_max']),
                 'precipitation_sum': float(input_dict['precipitation_sum']),
                 'status': predicted_class,
-                'confidence_score': confidence_score
+                # 'confidence_score': confidence_score
             }
         }
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# 
+# uvicorn app:app --host 0.0.0.0 --port 5000 --reload
