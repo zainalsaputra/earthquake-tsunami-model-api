@@ -173,4 +173,13 @@ async def predict(coord: Coordinate):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
+@app.get("/")
+async def home(request: Request):
+    base_url = str(request.base_url)
+    return {
+        "status": "success",
+        "message": f"Welcome to Earthquake & Tsunami Prediction API, show documentation at {base_url}docs"
+    }
+
 # uvicorn app:app --host 0.0.0.0 --port 5000 --reload

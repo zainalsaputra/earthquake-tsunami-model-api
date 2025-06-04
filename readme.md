@@ -141,6 +141,35 @@ import tflite_runtime.interpreter as tflite
 
 ---
 
+## 🚢 Deployment
+
+This API is deployed and publicly accessible via **Railway**.
+
+### 🌐 Live URL [Takedown 30/06/2025]
+
+You can access the live Earthquake & Tsunami Prediction API at:
+
+👉 [https://earthquake-tsunami-model-api-production.up.railway.app/](https://earthquake-tsunami-model-api-production.up.railway.app/)
+
+Use this URL as your base endpoint for sending API requests (e.g., `POST /predict`).
+
+---
+
+### 🛠 Deployment Platform
+
+This project is deployed using [Railway](https://railway.app), a cloud platform for instant backend deployments.
+
+If you want to deploy your own version:
+
+1. **Fork this repository**.
+2. Go to [Railway](https://railway.app) → Create New Project → Deploy from GitHub.
+3. Set the **Start Command** to:
+
+   ```bash
+   uvicorn app:app --host 0.0.0.0 --port 3000
+
+---
+
 ## 📄 License
 
 MIT License - Use freely with attribution.
@@ -150,3 +179,5 @@ MIT License - Use freely with attribution.
 ## ✨ Credits
 
 Developed as part of an initiative to support **early warning systems** and **disaster mitigation** technology in Indonesia.
+
+>  The full version with notebook.ipynb is in the notebook branch of this repo.
