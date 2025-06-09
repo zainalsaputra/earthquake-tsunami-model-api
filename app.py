@@ -56,7 +56,7 @@ def get_weather_data(latitude, longitude):
             'temperature_2m_min': daily['temperature_2m_min'][0],
             'precipitation_sum': daily['precipitation_sum'][0],
             'windspeed_10m_max': daily['windspeed_10m_max'][0],
-            'weathercode': 800 
+            'weathercode': 800  
         }
     except:
         return {
@@ -78,11 +78,11 @@ def get_location_data(latitude, longitude):
         return "Jawa", "Jakarta"
 
 def determine_tsunami_potential(magnitude, depth):
-    if magnitude >= 3 and depth < 30:
+    if magnitude >= 1.6 and depth < 70:  # Dangkal dan magnitudo tertinggi
         return "Tinggi", "Bahaya"
-    elif magnitude >= 2:
+    elif magnitude >= 1.1 and depth < 300:  # Magnitudo sedang, kedalaman menengah
         return "Sedang", "Waspada"
-    else:
+    else:  # Magnitudo rendah atau kedalaman lebih dalam
         return "Rendah", "Aman"
 
 def prepare_input_data(latitude, longitude, predicted_class="Aman"):
@@ -97,10 +97,18 @@ def prepare_input_data(latitude, longitude, predicted_class="Aman"):
     else:  # Bahaya
         magnitude = np.random.uniform(1.6, 2.5)
 
+    # Generate depth based on predicted_class
+    if predicted_class == "Aman":
+        depth = np.random.uniform(301.0, 700.0)  # Menengah, risiko rendah
+    elif predicted_class == "Waspada":
+        depth = np.random.uniform(71.0, 300.0)  # Dangkal-menengah, risiko sedang
+    else:  # Bahaya
+        depth = np.random.uniform(0.0, 70.0)  # Dangkal, risiko lebih tinggi
+
     quake = {
         'magnitude': magnitude,
         'mag_type': 'M',
-        'depth': 28.0,
+        'depth': depth,
         'phasecount': 65,
         'azimuth_gap': 136.0,
         'potensi_tsunami': 'Rendah'
@@ -121,7 +129,7 @@ def prepare_input_data(latitude, longitude, predicted_class="Aman"):
         **other
     }
 
-    return full_input 
+    return full_input  
 
 # === ROUTE ===
 @app.post("/predict")
@@ -178,7 +186,7 @@ async def predict(coord: Coordinate):
                 'windspeed_10m_max': float(input_dict['windspeed_10m_max']),
                 'precipitation_sum': float(input_dict['precipitation_sum']),
                 'status': predicted_class,
-                'confidence_score': confidence_score
+                #'confidence_score': confidence_score
             }
         }
 
