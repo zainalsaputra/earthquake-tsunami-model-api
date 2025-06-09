@@ -56,7 +56,7 @@ def get_weather_data(latitude, longitude):
             'temperature_2m_min': daily['temperature_2m_min'][0],
             'precipitation_sum': daily['precipitation_sum'][0],
             'windspeed_10m_max': daily['windspeed_10m_max'][0],
-            'weathercode': 800  # fallback
+            'weathercode': 800  
         }
     except:
         return {
@@ -71,28 +71,44 @@ def get_location_data(latitude, longitude):
     try:
         location = geocoder.reverse((latitude, longitude), language="id")
         address = location.raw.get("address", {}) if location else {}
-        city = address.get("city") or address.get("town") or address.get("village") or "Ambon"
-        location_name = address.get("state", "Banda Sea")
+        city = address.get("city") or address.get("town") or address.get("village") or "Jakarta"
+        location_name = address.get("state", "Jawa")
         return location_name, city
     except:
-        return "Banda Sea", "Ambon"
+        return "Jawa", "Jakarta"
 
 def determine_tsunami_potential(magnitude, depth):
-    if magnitude > 7 and depth < 30:
+    if magnitude >= 1.6 and depth < 70:  # Dangkal dan magnitudo tertinggi
         return "Tinggi", "Bahaya"
-    elif magnitude > 6:
+    elif magnitude >= 1.1 and depth < 300:  # Magnitudo sedang, kedalaman menengah
         return "Sedang", "Waspada"
-    else:
+    else:  # Magnitudo rendah atau kedalaman lebih dalam
         return "Rendah", "Aman"
 
-def prepare_input_data(latitude, longitude):
+def prepare_input_data(latitude, longitude, predicted_class="Aman"):
     weather = get_weather_data(latitude, longitude)
     location, city = get_location_data(latitude, longitude)
 
+    # Generate magnitude based on predicted_class
+    if predicted_class == "Aman":
+        magnitude = np.random.uniform(0.0, 1.0)
+    elif predicted_class == "Waspada":
+        magnitude = np.random.uniform(1.1, 1.5)
+    else:  # Bahaya
+        magnitude = np.random.uniform(1.6, 2.5)
+
+    # Generate depth based on predicted_class
+    if predicted_class == "Aman":
+        depth = np.random.uniform(301.0, 700.0)  # Menengah, risiko rendah
+    elif predicted_class == "Waspada":
+        depth = np.random.uniform(71.0, 300.0)  # Dangkal-menengah, risiko sedang
+    else:  # Bahaya
+        depth = np.random.uniform(0.0, 70.0)  # Dangkal, risiko lebih tinggi
+
     quake = {
-        'magnitude': 4.427,
+        'magnitude': magnitude,
         'mag_type': 'M',
-        'depth': 28.0,
+        'depth': depth,
         'phasecount': 65,
         'azimuth_gap': 136.0,
         'potensi_tsunami': 'Rendah'
@@ -113,7 +129,7 @@ def prepare_input_data(latitude, longitude):
         **other
     }
 
-    return full_input  # Dictionary
+    return full_input  
 
 # === ROUTE ===
 @app.post("/predict")
@@ -122,26 +138,30 @@ async def predict(coord: Coordinate):
         latitude = coord.latitude
         longitude = coord.longitude
 
-        input_dict = prepare_input_data(latitude, longitude)
-
-        # 🔄 Gunakan pandas untuk buat DataFrame
+        input_dict = prepare_input_data(latitude, longitude, "Aman")
         df_input = pd.DataFrame([input_dict])
-
-        # Urutkan kolom agar sesuai dengan preprocessor
         df_input = df_input[preprocessor.feature_names_in_]
-
-        # Transformasi
         X = preprocessor.transform(df_input).astype(np.float32)
 
-        # Prediksi dengan TFLite
         interpreter.set_tensor(input_details[0]['index'], X)
         interpreter.invoke()
         prediction = interpreter.get_tensor(output_details[0]['index'])
 
-        # Ambil hasil prediksi
         class_idx = np.argmax(prediction, axis=1)[0]
         predicted_class = label_encoder.inverse_transform([class_idx])[0]
-        # confidence_score = float(prediction[0][class_idx])
+
+        input_dict = prepare_input_data(latitude, longitude, predicted_class)
+        df_input = pd.DataFrame([input_dict])
+        df_input = df_input[preprocessor.feature_names_in_]
+        X = preprocessor.transform(df_input).astype(np.float32)
+
+        interpreter.set_tensor(input_details[0]['index'], X)
+        interpreter.invoke()
+        prediction = interpreter.get_tensor(output_details[0]['index'])
+
+        class_idx = np.argmax(prediction, axis=1)[0]
+        predicted_class = label_encoder.inverse_transform([class_idx])[0]
+        confidence_score = float(prediction[0][class_idx])
 
         magnitude = input_dict['magnitude']
         depth = input_dict['depth']
@@ -166,13 +186,12 @@ async def predict(coord: Coordinate):
                 'windspeed_10m_max': float(input_dict['windspeed_10m_max']),
                 'precipitation_sum': float(input_dict['precipitation_sum']),
                 'status': predicted_class,
-                # 'confidence_score': confidence_score
+                #'confidence_score': confidence_score
             }
         }
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
 
 @app.get("/")
 async def home(request: Request):
