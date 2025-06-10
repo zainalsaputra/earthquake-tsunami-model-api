@@ -1,0 +1,3 @@
+[submodule "mitigasi-kita-machine-learning"]
+	path = mitigasi-kita-machine-learning
+	url = https://github.com/CCoupse/mitigasi-kita-machine-learning
